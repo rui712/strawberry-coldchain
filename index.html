@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#244632">
+  <title>禾望冷链 · 草莓实测温度可视化</title>
+  <link rel="stylesheet" href="assets/style.css?v=20261023-dist">
+  <script src="assets/echarts.min.js"></script>
+  <script src="data/real_snapshot.js"></script>
+  <script src="assets/analysis.js"></script>
+  <script defer src="assets/app.js?v=20261023-dist"></script>
+</head>
+<body data-current-page="overview">
+  <svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <defs>
+      <symbol id="icon-sprout" viewBox="0 0 24 24"><path d="M12 21V11M12 15C5 16 2 11 3 5C9 4 13 8 12 15ZM12 11C11 5 15 2 21 3C22 9 18 12 12 11M6 21H18"/></symbol>
+      <symbol id="icon-temperature" viewBox="0 0 24 24"><path d="M9 14.5V5a3 3 0 0 1 6 0v9.5a5 5 0 1 1-6 0ZM12 8V17M17 5H20M17 9H20"/><circle cx="12" cy="18" r="1"/></symbol>
+      <symbol id="icon-time" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 6V12L16 15"/></symbol>
+      <symbol id="icon-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="6" height="6" rx="1.5"/><rect x="15" y="3" width="6" height="6" rx="1.5"/><rect x="3" y="15" width="6" height="6" rx="1.5"/><path d="M15 18L18 21L22 15"/></symbol>
+      <symbol id="icon-range" viewBox="0 0 24 24"><path d="M5 4V20M19 4V20M5 8H13M11 16H19"/><circle cx="15" cy="8" r="2"/><circle cx="9" cy="16" r="2"/></symbol>
+    </defs>
+  </svg>
+  <div class="app-shell">
+    <header class="site-header">
+      <div class="brand"><span class="brand-icon" aria-hidden="true"><svg><use href="#icon-sprout"/></svg></span><div><strong>禾望冷链</strong><small>农业冷链 · 数据观察</small></div></div>
+      <div class="header-meta"><span class="header-dot"></span><span id="mode">公开研究实测 · 离线可用</span></div>
+    </header>
+    <nav class="section-nav" aria-label="分析导航">
+      <a href="#overview" aria-current="page">数据概览</a><a href="#timeline">时间与空间</a><a href="#distribution">分布与节律</a><a href="#exceptions">异常追溯</a><a href="#comparison">多维比较</a><a href="#method">数据与方法</a>
+    </nav>
+    <main>
+      <section class="page-intro">
+        <div class="intro-content"><p class="eyebrow" id="pageEyebrow">农业数据可视化 · 草莓冷链</p><h1 id="pageTitle" tabindex="-1">草莓冷链，温度有迹可循</h1><p class="intro-copy" id="pageDescription">用六批次九测点实测数据，观察农产品运输中的温度变化。</p><div class="hero-facts"><span><b>6</b> 运输批次</span><span><b>9</b> 监测位置</span><span><b>10</b> 分钟采样</span></div></div>
+        <span class="data-badge"><i aria-hidden="true"></i><span id="pageDataLabel">草莓冷链 · 实测数据</span><small id="pageDataNote">非实时监测</small></span>
+      </section>
+      <section class="source-banner" id="sourceBanner" aria-live="polite" data-page="overview timeline exceptions comparison method">
+        <strong>数据来源</strong> 公开草莓冷链研究数据集；九个测点，每 10 分钟一条处理后记录。<a href="https://huggingface.co/datasets/NifferLi/Cold-Chain-Transportation-Strawberry/blob/main/article_release/ALL_benchmark_W60.xlsx" target="_blank" rel="noopener noreferrer">查看原始发布表 ↗</a>
+      </section>
+      <section class="toolbar" aria-label="数据筛选" data-page="overview timeline exceptions comparison">
+        <label>运输批次 <select id="batch" aria-label="运输批次"></select></label>
+        <label>观察位置 <select id="sensor" aria-label="观察位置"></select></label>
+        <span class="route-label" id="rangeLabel"></span>
+        <button class="button-quiet" id="reset" type="button">重置视图</button>
+        <button class="button-main" id="export" type="button">导出当前批次 CSV</button>
+      </section>
+      <section class="metrics" aria-label="关键指标" data-page="overview timeline exceptions comparison">
+        <article class="metric"><svg class="metric-icon" aria-hidden="true"><use href="#icon-temperature"/></svg><span>所选测点温度</span><strong id="temp">—</strong><small id="tempState"></small></article>
+        <article class="metric"><svg class="metric-icon" aria-hidden="true"><use href="#icon-time"/></svg><span>截至当前越界时长</span><strong id="exposure">—</strong><small id="exposureNote"></small></article>
+        <article class="metric"><svg class="metric-icon" aria-hidden="true"><use href="#icon-grid"/></svg><span>当前有效测点</span><strong id="coverage">—</strong><small id="coverageNote"></small></article>
+        <article class="metric"><svg class="metric-icon" aria-hidden="true"><use href="#icon-range"/></svg><span>当前空间温差</span><strong id="spread">—</strong><small id="spreadNote"></small></article>
+      </section>
+      <section class="panel overview-panel" id="overview" data-page="overview" aria-label="数据概览">
+        <div class="panel-heading"><div><p class="eyebrow">批次比较</p><h2>六批次实测概览</h2></div><span class="panel-tag">点击切换</span></div>
+        <div class="table-wrap"><table><thead><tr><th>批次 / 采样范围</th><th>有效覆盖</th><th>越界率</th><th>越界 / 有效时长</th><th>数据提示</th></tr></thead><tbody id="batchRows"></tbody></table></div>
+        <div id="qualityNotice" class="quality-note" role="status"></div>
+        <p class="panel-description">越界率 = 越界区间 ÷ 有效区间；缺测不算正常，也不进入分母。覆盖率提示仅用于提醒谨慎解释，不是食品安全等级。</p>
+      </section>
+      <div id="timeline" data-page="timeline" hidden>
+        <section class="playback" aria-label="时间回放">
+          <div class="playback-main">
+            <button id="play" type="button" aria-label="播放时间回放">▶ 播放</button>
+            <strong id="timeLabel">—</strong>
+            <input id="time" aria-label="回放时间" type="range" min="0" max="1" value="0">
+            <span id="endTime">—</span>
+            <label>速度 <select id="speed"><option value="600">1×</option><option value="220">3×</option><option value="70">10×</option></select></label>
+          </div>
+          <div class="playback-tools">
+            <label>跳到日期 <input id="jumpDate" aria-label="跳到日期" type="date"></label>
+            <span class="tool-hint">定位到所选日期的首条记录</span>
+            <label>趋势范围 <select id="viewWindow" aria-label="趋势范围"><option value="day">当前附近 24 小时</option><option value="all">全程</option><option value="custom" disabled>手动选定范围</option></select></label>
+          </div>
+          <p class="window-status" id="windowStatus" role="status"></p>
+        </section>
+        <section class="panel series-panel">
+          <div class="panel-heading"><div><p class="eyebrow">时间观察</p><h2>温度趋势与阈值</h2></div><span class="panel-tag" id="sampleCount">—</span></div>
+          <div class="threshold"><label>下限 <input id="low" type="number" step="0.5" aria-label="温度下限"> °C</label><label>上限 <input id="high" type="number" step="0.5" aria-label="温度上限"> °C</label><span id="thresholdError" role="alert"></span></div>
+          <div id="series" class="chart series-chart" role="img" aria-label="实测温度时间序列图"></div>
+          <p class="panel-description">实线为所选位置，虚线为同一时点有效测点的平均值；曲线断开表示缺测。缩放会同步到热力图；淡色带标记当前分析阈值范围。</p>
+        </section>
+        <section class="panel heatmap-panel">
+          <div class="panel-heading"><div><p class="eyebrow">时空观察</p><h2>九测点温度热力图</h2></div><span class="panel-tag" id="heatmapSelection">—</span></div>
+          <div class="chart-controls"><label>颜色编码 <select id="heatMode"><option value="status">阈值状态</option><option value="temperature">连续温度</option></select></label><span class="tool-hint">切换观察异常类别或温度梯度</span></div>
+          <div id="statusLegend" class="heatmap-legend" aria-label="热力图颜色说明">
+            <span><i class="heat-low"></i>低于下限</span><span><i class="heat-normal"></i>范围内</span>
+            <span><i class="heat-high"></i>高于上限</span><span><i class="heat-missing"></i>缺测</span>
+          </div>
+          <p id="temperatureLegend" class="panel-description" hidden>所有批次共用固定温标；颜色从深蓝到浅黄表示温度升高，灰色始终表示缺测。</p>
+          <div id="heatmap" class="chart heatmap-chart" role="img" aria-label="九个实测位置随时间变化的温度状态热力图，灰色表示缺测"></div>
+          <p class="panel-description">每格对应一个测点的一条真实 10 分钟记录；悬停查看具体温度与状态。描边标出当前时刻与测点，点击色块可联动定位。灰色缺测不参与连续温标。</p>
+        </section>
+        <section class="analysis-grid">
+          <article class="panel">
+            <div class="panel-heading"><div><p class="eyebrow">空间观察</p><h2>九点测温矩阵</h2></div><span class="panel-tag" id="sensorStamp">—</span></div>
+            <p class="panel-description">行依次为前 / 中 / 后，列依次为上 / 中 / 下；点击测点切换全页分析。</p>
+            <div class="matrix-axis"><span>上</span><span>中</span><span>下</span></div>
+            <div id="sensorGrid" class="sensor-grid"></div>
+            <div class="matrix-legend"><span><i class="legend-normal"></i>范围内</span><span><i class="legend-alert"></i>越界</span><span><i class="legend-missing"></i>缺测</span></div>
+          </article>
+          <article class="panel">
+            <div class="panel-heading"><div><p class="eyebrow">测点对比</p><h2>全程越界与缺测时长</h2></div><span class="panel-tag">小时</span></div>
+            <div id="sensorBars" class="chart bars-chart" role="img" aria-label="九个测点全程温度越界和缺测时长对比"></div>
+            <p class="panel-description">每条记录代表其后 10 分钟区间；末条记录不计时。缺测单列统计，不视作正常或越界。</p>
+          </article>
+        </section>
+      </div>
+      <div id="distribution" data-page="distribution" hidden>
+        <section class="panel box-panel">
+          <div class="panel-heading"><div><p class="eyebrow">分布观察</p><h2>六批次温度分布</h2></div><span class="panel-tag" id="boxHint">—</span></div>
+          <div id="boxChart" class="chart box-chart" role="img" aria-label="六个批次温度分布的箱线图，虚线为当前阈值"></div>
+          <p class="panel-description">箱体为 25%–75% 分位，箱内横线为中位数，须状线为最小与最大值；仅统计有读数的记录，缺测不参与。箱体越高说明温度越不稳定，整体位置上移说明长期偏暖。</p>
+        </section>
+        <section class="analysis-grid">
+          <article class="panel">
+            <div class="panel-heading"><div><p class="eyebrow">状态构成</p><h2>每条记录落在哪一类</h2></div><span class="panel-tag" id="statusHint">—</span></div>
+            <div id="statusChart" class="chart status-chart" role="img" aria-label="各批次低温、正常、高温与缺测区间占比的堆叠条形图"></div>
+            <p class="panel-description">按当前所选测点统计四类区间占比，四段相加为 100%。与只报越界率相比，这里能直接看出“缺测占了多少”和“越界偏冷还是偏热”。</p>
+          </article>
+          <article class="panel">
+            <div class="panel-heading"><div><p class="eyebrow">累积暴露</p><h2>越界小时如何累积</h2></div><span class="panel-tag" id="cumulativeHint">—</span></div>
+            <div id="cumulativeChart" class="chart cumulative-chart" role="img" aria-label="六批次越界累计小时随运输时间变化的阶梯曲线"></div>
+            <p class="panel-description">横轴为距首条记录的小时数，纵轴为累计越界小时。曲线陡的一段就是越界密集期；各批次时长不同，末端不代表同一时刻。</p>
+          </article>
+        </section>
+        <section class="panel rhythm-panel">
+          <div class="panel-heading"><div><p class="eyebrow">节律观察</p><h2>日期 × 时刻温度</h2></div><span class="panel-tag" id="rhythmHint">—</span></div>
+          <div id="rhythmChart" class="chart rhythm-chart" role="img" aria-label="所选批次按日期与小时聚合的平均温度热力图，灰色表示该时段无有效读数"></div>
+          <p class="panel-description">每格是该批次某天某小时（最多 6 条记录）的平均温度，只统计有读数的记录；灰色表示该小时整段缺测。用于识别昼夜节律和跨天的整体漂移。</p>
+        </section>
+      </div>
+      <section class="panel exceptions-panel" id="exceptions" data-page="exceptions" hidden>
+        <div class="panel-heading"><div><p class="eyebrow">异常定位</p><h2>所选测点异常与缺测</h2></div><span class="panel-tag" id="eventCount">—</span></div>
+        <div class="chart-controls"><label>类型 <select id="eventFilter"><option value="outside">全部越界</option><option value="high">高于上限</option><option value="low">低于下限</option><option value="missing">缺测区间</option></select></label><label>排序 <select id="eventSort"><option value="time">时间先后</option><option value="duration">持续时间</option></select></label></div>
+        <div class="events" id="events"></div>
+        <p class="panel-description">点击区间可跳转到“时间与空间”，查看对应时刻的温度趋势与九点读数。</p>
+      </section>
+      <section class="panel comparison-panel" id="comparison" data-page="comparison" hidden>
+        <div class="panel-heading"><div><p class="eyebrow">多维观察</p><h2>覆盖率与越界率如何共同变化</h2></div><span class="panel-tag" id="comparisonCount">54 个批次测点</span></div>
+        <div class="chart-controls"><label>最低有效覆盖 <select id="minCoverage"><option value="0">不限</option><option value="50">50%</option><option value="90">90%</option></select></label><label>列表排序 <select id="comparisonSort"><option value="outside">越界率从高到低</option><option value="coverage">有效覆盖从高到低</option><option value="position">批次与位置</option></select></label><button class="button-quiet" id="clearBrush" type="button">清除框选</button></div>
+        <div class="comparison-layout">
+          <div><div id="comparisonChart" class="chart comparison-chart" role="img" aria-label="六批次九测点的有效覆盖率和越界率散点图，支持矩形框选"></div><p class="panel-description">横轴为有效覆盖率，纵轴为越界率；颜色和形状共同区分六个批次。工具栏矩形框选可过滤右侧记录，点击点或记录可定位批次与测点。坐标完全相同的点可能重叠，可通过列表选择。</p></div>
+          <div><p class="comparison-status" id="comparisonStatus" role="status"></p><div class="comparison-list" id="comparisonList"></div></div>
+        </div>
+      </section>
+      <section class="panel parallel-panel" data-page="comparison" hidden>
+        <div class="panel-heading"><div><p class="eyebrow">高维观察</p><h2>五个指标上的批次轮廓</h2></div><span class="panel-tag">平行坐标</span></div>
+        <div id="parallelChart" class="chart parallel-chart" role="img" aria-label="六个批次在有效覆盖率、越界率、高于上限时长、低于下限时长与平均空间温差五个指标上的平行坐标图"></div>
+        <p class="panel-description">每条折线是一个批次，纵向位置表示该指标上的取值，各轴刻度独立。折线交叉多说明批次之间不存在单一维度的优劣顺序——覆盖高的未必越界少，这正需要多指标一起看。</p>
+      </section>
+      <section class="panel method-panel" id="method" data-page="method" hidden>
+        <div class="panel-heading"><div><p class="eyebrow">数据与方法</p><h2>每个结论都能回到原始记录</h2></div><span class="panel-tag" id="storageMode">正在载入</span></div>
+        <div class="method-grid"><div><h3>数据覆盖</h3><p id="datasetSummary"></p><p>记录来自同一研究发布表。时间按原表显示，未臆定时区；缺测保留为空值。</p></div><div><h3>统计口径</h3><p>每条记录代表其后 10 分钟区间，末条不增加时长。越界率以有效区间为分母，有效覆盖率以全部可计时区间为分母。</p><p>阈值调整会重算全部批次。缩放仅改变观察范围，全程统计口径保持不变。</p></div><div><h3>分析边界</h3><p>0–4 °C 为初始分析阈值。温度越界不能直接证明食品变质、货损或运输责任；数据不含可对应的 GPS、湿度及称重记录。</p><p><a href="课程优化说明.md">课程知识点与评估任务 ↗</a></p></div></div>
+        <p class="method-note"><strong>图表分工：</strong>折线与时空热力图回答“何时、哪个位置”；箱线图与状态构成回答“整体分布与构成”；累积曲线回答“越界如何随时间累积”；散点图与平行坐标回答“批次之间如何取舍”。所有图表共用同一套阈值与统计口径，修改阈值后同步重算，缩放只改变观察范围。</p>
+      </section>
+      <footer><span class="footer-brand"><svg aria-hidden="true"><use href="#icon-sprout"/></svg>禾望冷链 · 农业数据可视化课程实验</span><span>来源、计算口径与讲解见 <a href="讲解说明.md">讲解说明.md</a></span></footer>
+    </main>
+  </div>
+</body>
+</html>
+
